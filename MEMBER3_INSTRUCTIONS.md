@@ -27,54 +27,99 @@ Compiles both Solidity contracts, deploys them to Ganache, seeds fake data, and 
 
 ### Step-by-Step Implementation
 
-```python
-# 1. Install solc via py-solc-x
-from solcx import install_solc, compile_standard
-install_solc('0.8.0')
+**Step 1 — Import everything you need:**
 
-# 2. Read both .sol files
+```python
+import json
+import os
+from web3 import Web3
+from solcx import install_solc, compile_source
+```
+
+**Step 2 — Install the Solidity compiler:**
+
+```python
+install_solc('0.8.0')
+```
+
+This downloads the Solidity compiler version 0.8.0 to your machine. It only needs to download once.
+
+**Step 3 — Read the contract files:**
+
+```python
 with open("contracts/CharityCampaigns.sol", "r") as f:
     charity_source = f.read()
+
 with open("contracts/DonorCoin.sol", "r") as f:
     coin_source = f.read()
+```
 
-# 3. Compile using compile_standard()
-compiled = compile_standard({
-    "language": "Solidity",
-    "sources": {
-        "CharityCampaigns.sol": {"content": charity_source},
-        "DonorCoin.sol": {"content": coin_source}
-    },
-    "settings": {
-        "outputSelection": {
-            "*": {"*": ["abi", "evm.bytecode"]}
-        }
-    }
-}, solc_version="0.8.0")
+**Step 4 — Compile the contracts:**
 
-# 4. Extract ABI and bytecode for each contract
-charity_abi      = compiled["contracts"]["CharityCampaigns.sol"]["CharityCampaigns"]["abi"]
-charity_bytecode = compiled["contracts"]["CharityCampaigns.sol"]["CharityCampaigns"]["evm"]["bytecode"]["object"]
+`compile_source()` takes the Solidity code as a string and returns compiled output (ABI + bytecode).
 
-coin_abi      = compiled["contracts"]["DonorCoin.sol"]["DonorCoin"]["abi"]
-coin_bytecode = compiled["contracts"]["DonorCoin.sol"]["DonorCoin"]["evm"]["bytecode"]["object"]
+```python
+# Compile CharityCampaigns
+charity_compiled = compile_source(
+    charity_source,
+    output_values=["abi", "bin"],
+    solc_version="0.8.0"
+)
+# The key is "<stdin>:CharityCampaigns" — we grab the contract by name
+charity_data = charity_compiled["<stdin>:CharityCampaigns"]
+charity_abi = charity_data["abi"]
+charity_bytecode = charity_data["bin"]
 
-# 5. Save ABIs to abis/ folder
-import json, os
+# Compile DonorCoin
+coin_compiled = compile_source(
+    coin_source,
+    output_values=["abi", "bin"],
+    solc_version="0.8.0"
+)
+coin_data = coin_compiled["<stdin>:DonorCoin"]
+coin_abi = coin_data["abi"]
+coin_bytecode = coin_data["bin"]
+```
+
+**What is ABI?** The ABI (Application Binary Interface) is a JSON list that describes all the functions and events in your contract. Python needs this to know how to call the contract.
+
+**What is bytecode?** The compiled machine code that gets deployed to the blockchain.
+
+**Step 5 — Save the ABIs to files:**
+
+Other team members' scripts will load these files to interact with the contracts.
+
+```python
 os.makedirs("abis", exist_ok=True)
+
 with open("abis/CharityCampaigns.json", "w") as f:
     json.dump(charity_abi, f, indent=2)
+
 with open("abis/DonorCoin.json", "w") as f:
     json.dump(coin_abi, f, indent=2)
 
-# 6. Connect to Ganache
-from web3 import Web3
-w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
-assert w3.is_connected(), "Cannot connect to Ganache!"
-deployer = w3.eth.accounts[0]
+print("ABIs saved to abis/ folder")
+```
 
-# 7. Deploy CharityCampaigns
+**Step 6 — Connect to Ganache:**
+
+```python
+w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
+
+if not w3.is_connected():
+    print("ERROR: Cannot connect to Ganache! Make sure it is running.")
+    exit()
+
+print("Connected to Ganache")
+deployer = w3.eth.accounts[0]   # First account is the deployer/admin
+print(f"Deployer account: {deployer}")
+```
+
+**Step 7 — Deploy CharityCampaigns contract:**
+
+```python
 CharityCampaigns = w3.eth.contract(abi=charity_abi, bytecode=charity_bytecode)
+
 tx_hash = CharityCampaigns.constructor().transact({
     "from": deployer,
     "gas": 3000000
@@ -82,9 +127,13 @@ tx_hash = CharityCampaigns.constructor().transact({
 receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 charity_address = receipt.contractAddress
 print(f"CharityCampaigns deployed at: {charity_address}")
+```
 
-# 8. Deploy DonorCoin
+**Step 8 — Deploy DonorCoin contract:**
+
+```python
 DonorCoin = w3.eth.contract(abi=coin_abi, bytecode=coin_bytecode)
+
 tx_hash = DonorCoin.constructor().transact({
     "from": deployer,
     "gas": 3000000
@@ -92,55 +141,72 @@ tx_hash = DonorCoin.constructor().transact({
 receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 coin_address = receipt.contractAddress
 print(f"DonorCoin deployed at: {coin_address}")
+```
 
-# 9. Get contract instances
+**Step 9 — Get contract instances (so we can call functions):**
+
+```python
 charity_contract = w3.eth.contract(address=charity_address, abi=charity_abi)
-coin_contract    = w3.eth.contract(address=coin_address, abi=coin_abi)
+coin_contract = w3.eth.contract(address=coin_address, abi=coin_abi)
+```
 
-# 10. Seed at least 3 fake campaigns
+**Step 10 — Seed at least 3 fake campaigns:**
+
+```python
 campaigns = [
     ("Clean Water Fund", "Providing clean water to rural communities", w3.to_wei(10, "ether")),
     ("Education for All", "Building schools in underserved areas", w3.to_wei(20, "ether")),
     ("Medical Aid Relief", "Emergency medical supplies for disaster zones", w3.to_wei(15, "ether")),
 ]
+
 for name, desc, goal in campaigns:
-    tx = charity_contract.functions.addCampaign(name, desc, goal).transact({
+    tx_hash = charity_contract.functions.addCampaign(name, desc, goal).transact({
         "from": deployer,
         "gas": 300000
     })
-    w3.eth.wait_for_transaction_receipt(tx)
-    print(f"  Seeded campaign: {name}")
+    w3.eth.wait_for_transaction_receipt(tx_hash)
+    print(f"  Added campaign: {name}")
+```
 
-# 11. Mint some Donor Coins to test accounts
+**Step 11 — Mint some Donor Coins to test accounts:**
+
+```python
 for i in range(1, 4):
-    tx = coin_contract.functions.mint(
-        w3.eth.accounts[i],
-        w3.to_wei(100, "ether")  # 100 DNRC
-    ).transact({"from": deployer, "gas": 100000})
-    w3.eth.wait_for_transaction_receipt(tx)
-    print(f"  Minted 100 DNRC to account {i}: {w3.eth.accounts[i]}")
+    account = w3.eth.accounts[i]
+    tx_hash = coin_contract.functions.mint(
+        account,
+        w3.to_wei(100, "ether")   # 100 DNRC tokens
+    ).transact({
+        "from": deployer,
+        "gas": 100000
+    })
+    w3.eth.wait_for_transaction_receipt(tx_hash)
+    print(f"  Minted 100 DNRC to account[{i}]: {account}")
+```
 
-# 12. Save config.json
+**Step 12 — Save contract addresses to config.json:**
+
+```python
 config = {
     "CharityCampaigns": charity_address,
     "DonorCoin": coin_address
 }
+
 with open("config.json", "w") as f:
     json.dump(config, f, indent=2)
-print(f"\nConfig saved to config.json")
+
+print("\nDone! Contract addresses saved to config.json:")
 print(f"  CharityCampaigns: {charity_address}")
 print(f"  DonorCoin:        {coin_address}")
 ```
 
-### Output Files
+### What gets created after running deploy.py
 
-After running `deploy.py`, these files must exist:
-
-| File | Content |
-|------|---------|
-| `abis/CharityCampaigns.json` | ABI array for CharityCampaigns contract |
-| `abis/DonorCoin.json` | ABI array for DonorCoin contract |
-| `config.json` | `{"CharityCampaigns": "0x...", "DonorCoin": "0x..."}` |
+| File | What's inside |
+|------|---------------|
+| `abis/CharityCampaigns.json` | JSON list of all functions/events in CharityCampaigns |
+| `abis/DonorCoin.json` | JSON list of all functions/events in DonorCoin |
+| `config.json` | The blockchain addresses where the contracts live |
 
 ---
 
@@ -150,64 +216,72 @@ After running `deploy.py`, these files must exist:
 
 ### What this script does
 
-Prints a summary of the entire system for the admin: total campaigns, total coins minted, total transactions, and top 3 most active addresses.
+Prints a summary for the admin: total campaigns, total coins minted, total transactions, and top 3 most active addresses.
 
-### Step-by-Step Implementation
+### Full Code
 
 ```python
 import json
 from web3 import Web3
 
-# 1. Connect to Ganache and load contracts
+# --- Connect to Ganache ---
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
 
+# --- Load contract addresses and ABIs ---
 with open("config.json") as f:
     config = json.load(f)
+
 with open("abis/CharityCampaigns.json") as f:
     charity_abi = json.load(f)
+
 with open("abis/DonorCoin.json") as f:
     coin_abi = json.load(f)
 
 charity = w3.eth.contract(address=config["CharityCampaigns"], abi=charity_abi)
-coin    = w3.eth.contract(address=config["DonorCoin"], abi=coin_abi)
+coin = w3.eth.contract(address=config["DonorCoin"], abi=coin_abi)
 
-# 2. Read campaign count from contract view function
+# --- Read data from contract view functions ---
 campaign_count = charity.functions.campaignCount().call()
-
-# 3. Read total supply from DonorCoin view function
 total_supply = coin.functions.totalSupply().call()
-total_supply_eth = w3.from_wei(total_supply, "ether")
+total_supply_display = w3.from_wei(total_supply, "ether")
 
-# 4. Loop through all blocks and count transactions
+# --- Scan all blocks to count transactions ---
 total_tx = 0
 sender_counts = {}
+
+# These are the contract addresses we want to track
 charity_addr = config["CharityCampaigns"].lower()
-coin_addr    = config["DonorCoin"].lower()
+coin_addr = config["DonorCoin"].lower()
 
 latest_block = w3.eth.block_number
+
 for block_num in range(0, latest_block + 1):
     block = w3.eth.get_block(block_num, full_transactions=True)
+
     for tx in block.transactions:
-        # Count transactions TO either contract
+        # Only count transactions sent TO our contracts
         if tx["to"] and tx["to"].lower() in [charity_addr, coin_addr]:
             total_tx += 1
             sender = tx["from"]
             sender_counts[sender] = sender_counts.get(sender, 0) + 1
 
-# 5. Find top 3 most active addresses
-top_3 = sorted(sender_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+# --- Find top 3 most active addresses ---
+sorted_senders = sorted(sender_counts.items(), key=lambda x: x[1], reverse=True)
+top_3 = sorted_senders[:3]
 
-# 6. Print formatted summary
+# --- Print formatted summary ---
 print("=" * 60)
-print("          ADMIN DASHBOARD")
+print("              ADMIN DASHBOARD")
 print("=" * 60)
-print(f"  Total Campaigns   : {campaign_count}")
-print(f"  Total Coins Minted: {total_supply_eth} DNRC")
-print(f"  Total Transactions: {total_tx}")
+print(f"  Total Campaigns    : {campaign_count}")
+print(f"  Total Coins Minted : {total_supply_display} DNRC")
+print(f"  Total Transactions : {total_tx}")
 print("-" * 60)
 print("  Top 3 Most Active Addresses:")
 for rank, (addr, count) in enumerate(top_3, 1):
     print(f"    {rank}. {addr} — {count} transactions")
+if not top_3:
+    print("    (no transactions yet)")
 print("=" * 60)
 ```
 
@@ -219,9 +293,9 @@ print("=" * 60)
 
 ### What this script does
 
-Scans every block on the chain, collects all unique addresses, queries their Donor Coin balance and ETH balance, then writes everything to a CSV file.
+Scans every block, collects all addresses that ever sent or received a transaction, checks their Donor Coin balance and ETH balance, and saves it all to a CSV file.
 
-### Step-by-Step Implementation
+### Full Code
 
 ```python
 import json
@@ -229,79 +303,65 @@ import csv
 import os
 from web3 import Web3
 
-# 1. Connect and load contracts
+# --- Connect to Ganache ---
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
 
+# --- Load DonorCoin contract ---
 with open("config.json") as f:
     config = json.load(f)
+
 with open("abis/DonorCoin.json") as f:
     coin_abi = json.load(f)
 
 coin = w3.eth.contract(address=config["DonorCoin"], abi=coin_abi)
 
-# 2. Collect all unique addresses from block history
+# --- Step 1: Scan every block and collect all unique addresses ---
 addresses = set()
 latest_block = w3.eth.block_number
+
 for block_num in range(0, latest_block + 1):
     block = w3.eth.get_block(block_num, full_transactions=True)
     for tx in block.transactions:
-        addresses.add(tx["from"])
+        addresses.add(tx["from"])         # sender
         if tx["to"]:
-            addresses.add(tx["to"])
+            addresses.add(tx["to"])       # receiver
 
-# 3. For each address: get balanceOf() and get_balance()
+print(f"Found {len(addresses)} unique addresses")
+
+# --- Step 2: Query balances and write to CSV ---
 os.makedirs("exports", exist_ok=True)
 output_file = "exports/balance_snapshot.csv"
 
 with open(output_file, "w", newline="") as csvfile:
     writer = csv.writer(csvfile)
+
     # Header row
     writer.writerow(["Account Address", "Donor Coin Balance", "ETH Balance"])
 
+    # One row per account
     for addr in sorted(addresses):
+        # Get Donor Coin balance
         try:
             coin_balance = coin.functions.balanceOf(addr).call()
-            coin_balance_eth = float(w3.from_wei(coin_balance, "ether"))
+            coin_display = float(w3.from_wei(coin_balance, "ether"))
         except:
-            coin_balance_eth = 0.0
+            coin_display = 0.0
 
+        # Get ETH balance
         eth_balance = w3.eth.get_balance(addr)
-        eth_balance_eth = float(w3.from_wei(eth_balance, "ether"))
+        eth_display = float(w3.from_wei(eth_balance, "ether"))
 
-        writer.writerow([addr, f"{coin_balance_eth:.2f}", f"{eth_balance_eth:.2f}"])
+        writer.writerow([addr, f"{coin_display:.2f}", f"{eth_display:.2f}"])
 
 print(f"Balance snapshot saved to {output_file}")
 ```
 
 ---
 
-## How Other Members Depend on Your Work
-
-Once you run `deploy.py`, the following files are created and used by everyone:
-
-```
-config.json                    → All scripts load contract addresses from here
-abis/CharityCampaigns.json     → All scripts load the ABI from here
-abis/DonorCoin.json            → All scripts load the ABI from here
-```
-
-**Every other member's script** starts with:
-
-```python
-with open("config.json") as f:
-    config = json.load(f)
-with open("abis/CharityCampaigns.json") as f:
-    charity_abi = json.load(f)
-```
-
-So make sure `deploy.py` runs successfully and creates these files before telling the team to start!
-
----
-
-## Testing Your Work
+## How to Test Your Work
 
 ```bash
-# 1. Make sure Ganache is running
+# 1. Make sure Ganache is running on port 7545
 # 2. Deploy everything
 python scripts/deploy.py
 
