@@ -4,14 +4,46 @@ You are responsible for **3 Python scripts**. Your work is on the critical path 
 
 ---
 
+## Getting Started
+
+Before writing any code, set up your environment:
+
+1. Make sure you have **Python 3.8+** installed (`python3 --version`)
+2. Install the required packages:
+   ```
+   pip install web3 py-solc-x
+   ```
+   - `web3` is the library that lets Python talk to the blockchain
+   - `py-solc-x` is used to compile Solidity contracts from Python
+3. Install and start **Ganache** (local blockchain for testing):
+   ```
+   npm install -g ganache
+   ganache --port 7545 --accounts 10 --defaultBalanceEther 100
+   ```
+   Keep this terminal running — it's your local blockchain.
+4. The Solidity contracts are already written in the `contracts/` folder by Members 1 and 2.
+
+You'll mainly be using these from `web3`:
+- `Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))` to connect
+- `w3.eth.accounts` to get the list of test accounts
+- `w3.eth.contract(abi=..., bytecode=...)` to deploy
+- `contract.functions.someFunction().transact({"from": ..., "gas": ...})` to call functions
+- `w3.eth.wait_for_transaction_receipt(tx_hash)` to wait for confirmation
+
+And from `py-solc-x`:
+- `install_solc('0.8.0')` to download the Solidity compiler
+- `compile_source(source_code, output_values=["abi", "bin"], solc_version="0.8.0")` to compile
+
+---
+
 ## Task 1: `scripts/deploy.py` — Auto-Setup Script
 
 **What it does:** Compiles the two Solidity contracts, deploys them to Ganache, and seeds the blockchain with test data so the app is ready to use.
 
 **What you need to do:**
 
-1. Use `py-solc-x` to install the Solidity compiler (version 0.8.0) and compile both contracts (`CharityCampaigns.sol` and `DonorCoin.sol`)
-2. Save the ABI (the JSON description of each contract's functions) to `abis/CharityCampaigns.json` and `abis/DonorCoin.json`
+1. Use `py-solc-x` to install solc version 0.8.0 and compile both contracts (`CharityCampaigns.sol` and `DonorCoin.sol`)
+2. Save the ABI (JSON list of the contract's functions) to `abis/CharityCampaigns.json` and `abis/DonorCoin.json`
 3. Connect to Ganache at `http://127.0.0.1:7545`
 4. Deploy both contracts to the blockchain using `send_transaction` with an explicit `gas` parameter
 5. Seed at least 3 fake charity campaigns by calling `addCampaign()` on the deployed contract
@@ -40,14 +72,14 @@ You are responsible for **3 Python scripts**. Your work is on the critical path 
 1. Load the contract addresses from `config.json` and ABIs from the `abis/` folder
 2. Read the total number of campaigns from the contract's `campaignCount()` view function
 3. Read the total coins minted from the DonorCoin contract's `totalSupply()` view function
-4. Loop through every block on the chain (from block 0 to the latest block) and count all transactions sent to the contract addresses
+4. Loop through every block on the chain (from block 0 to the latest) and count all transactions sent to the contract addresses
 5. Track how many transactions each sender address made, then find the top 3 most active addresses
 6. Print everything in a clean, formatted summary
 
 **The output should show:**
 - Total number of charity campaigns
 - Total amount of Donor Coins minted
-- Total number of transactions
+- Total number of transactions on the contracts
 - Top 3 most active user addresses
 
 **Grading checklist:** web3 block-range loop, read contract view functions, count transactions per sender, formatted print output.
@@ -75,7 +107,8 @@ You are responsible for **3 Python scripts**. Your work is on the critical path 
 
 ## Important Notes
 
-- All your scripts should load contract addresses from `config.json` and ABIs from the `abis/` folder
-- Make sure Ganache is running before you execute anything
+- Every script loads contract addresses from `config.json` and ABIs from the `abis/` folder
+- Make sure Ganache is running before you run anything
 - Run `deploy.py` first — the other two scripts depend on the files it creates
-- Use `try/except` around blockchain calls to handle errors gracefully
+- Wrap blockchain calls in `try/except` to handle errors
+- If Ganache crashes or you restart it, you need to run `deploy.py` again (it resets the blockchain)

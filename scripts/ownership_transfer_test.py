@@ -1,136 +1,90 @@
 """
-Ownership Transfer Test — Member 2 (S7)
-========================================
-Proves that transferOwnership() works correctly on CharityCampaigns:
-  1. Admin (accounts[0]) adds a campaign              → succeeds
-  2. Admin calls transferOwnership(accounts[1])        → ownership moves
-  3. Old admin (accounts[0]) tries to add a campaign   → reverts  → PASS
-  4. New admin (accounts[1]) adds a campaign            → succeeds → PASS
-
-Prerequisites
--------------
-- Ganache running at http://127.0.0.1:7545
-- deploy.py has been run (config.json + ABIs exist)
+Ownership Transfer Test
+Tests that transferOwnership works on the CharityCampaigns contract.
+Run this after deploy.py has been executed.
 """
 
 import json
 import sys
 from web3 import Web3
 
-# ---------------------------------------------------------------------------
-#  Configuration
-# ---------------------------------------------------------------------------
 GANACHE_URL = "http://127.0.0.1:7545"
-
-def load_config():
-    """Load contract addresses and ABIs from config.json and abis/ folder."""
-    with open("config.json", "r") as f:
-        config = json.load(f)
-
-    with open("abis/CharityCampaigns.json", "r") as f:
-        charity_abi = json.load(f)
-
-    return config, charity_abi
 
 
 def main():
-    # --- Connect to Ganache ---
     w3 = Web3(Web3.HTTPProvider(GANACHE_URL))
     if not w3.is_connected():
-        print("ERROR: Cannot connect to Ganache at", GANACHE_URL)
+        print("Cannot connect to Ganache!")
         sys.exit(1)
 
     accounts = w3.eth.accounts
-    if len(accounts) < 2:
-        print("ERROR: Need at least 2 Ganache accounts")
-        sys.exit(1)
 
-    config, charity_abi = load_config()
-    charity_address = config["CharityCampaigns"]
+    # load config and abi
+    with open("config.json") as f:
+        config = json.load(f)
+    with open("abis/CharityCampaigns.json") as f:
+        abi = json.load(f)
 
     contract = w3.eth.contract(
-        address=Web3.to_checksum_address(charity_address),
-        abi=charity_abi
+        address=config["CharityCampaigns"],
+        abi=abi
     )
 
     original_admin = accounts[0]
-    new_admin      = accounts[1]
+    new_admin = accounts[1]
 
-    print("=" * 60)
-    print("  Ownership Transfer Test")
-    print("=" * 60)
-    print(f"  Original Admin : {original_admin}")
-    print(f"  New Admin      : {new_admin}")
-    print("=" * 60)
+    print("Ownership Transfer Test")
+    print(f"Original admin: {original_admin}")
+    print(f"New admin:      {new_admin}")
+    print()
 
-    # ------------------------------------------------------------------
-    # Step 1: Admin (accounts[0]) adds a campaign — should SUCCEED
-    # ------------------------------------------------------------------
-    print("\n[Step 1] Original admin adds a campaign...")
+    # step 1 - original admin adds a campaign (should work)
+    print("[1] Original admin adding a campaign...")
     try:
-        tx_hash = contract.functions.addCampaign(
-            "Test Campaign Before Transfer",
-            "Testing admin action before ownership transfer",
-            w3.to_wei(5, "ether")
+        tx = contract.functions.addCampaign(
+            "Test Before Transfer", "testing", w3.to_wei(5, "ether")
         ).transact({"from": original_admin, "gas": 300000})
-        w3.eth.wait_for_transaction_receipt(tx_hash)
-        print("  ✅ PASS — Campaign added successfully by original admin")
+        w3.eth.wait_for_transaction_receipt(tx)
+        print("    PASS - campaign added")
     except Exception as e:
-        print(f"  ❌ FAIL — Original admin could not add campaign: {e}")
+        print(f"    FAIL - {e}")
         sys.exit(1)
 
-    # ------------------------------------------------------------------
-    # Step 2: Transfer ownership to accounts[1]
-    # ------------------------------------------------------------------
-    print("\n[Step 2] Transferring ownership to new admin...")
+    # step 2 - transfer ownership
+    print("[2] Transferring ownership...")
     try:
-        tx_hash = contract.functions.transferOwnership(new_admin).transact({
-            "from": original_admin,
-            "gas": 100000
+        tx = contract.functions.transferOwnership(new_admin).transact({
+            "from": original_admin, "gas": 100000
         })
-        w3.eth.wait_for_transaction_receipt(tx_hash)
-        current_admin = contract.functions.getAdmin().call()
-        print(f"  ✅ Ownership transferred. Current admin: {current_admin}")
+        w3.eth.wait_for_transaction_receipt(tx)
+        print(f"    Done. Admin is now: {contract.functions.getAdmin().call()}")
     except Exception as e:
-        print(f"  ❌ FAIL — Could not transfer ownership: {e}")
+        print(f"    FAIL - {e}")
         sys.exit(1)
 
-    # ------------------------------------------------------------------
-    # Step 3: Old admin tries to add a campaign — should REVERT
-    # ------------------------------------------------------------------
-    print("\n[Step 3] Old admin tries to add a campaign (should fail)...")
+    # step 3 - old admin tries again (should fail)
+    print("[3] Old admin trying to add campaign (should fail)...")
     try:
-        tx_hash = contract.functions.addCampaign(
-            "Should Fail Campaign",
-            "This should be rejected",
-            w3.to_wei(1, "ether")
+        tx = contract.functions.addCampaign(
+            "Should Fail", "nope", w3.to_wei(1, "ether")
         ).transact({"from": original_admin, "gas": 300000})
-        w3.eth.wait_for_transaction_receipt(tx_hash)
-        print("  ❌ FAIL — Old admin was able to add a campaign after transfer!")
+        w3.eth.wait_for_transaction_receipt(tx)
+        print("    FAIL - old admin could still add!")
     except Exception:
-        print("  ✅ PASS — Old admin correctly blocked (transaction reverted)")
+        print("    PASS - old admin blocked")
 
-    # ------------------------------------------------------------------
-    # Step 4: New admin adds a campaign — should SUCCEED
-    # ------------------------------------------------------------------
-    print("\n[Step 4] New admin adds a campaign (should succeed)...")
+    # step 4 - new admin tries (should work)
+    print("[4] New admin adding a campaign...")
     try:
-        tx_hash = contract.functions.addCampaign(
-            "Test Campaign After Transfer",
-            "Testing admin action after ownership transfer",
-            w3.to_wei(10, "ether")
+        tx = contract.functions.addCampaign(
+            "Test After Transfer", "works now", w3.to_wei(10, "ether")
         ).transact({"from": new_admin, "gas": 300000})
-        w3.eth.wait_for_transaction_receipt(tx_hash)
-        print("  ✅ PASS — New admin added campaign successfully")
+        w3.eth.wait_for_transaction_receipt(tx)
+        print("    PASS - new admin added campaign")
     except Exception as e:
-        print(f"  ❌ FAIL — New admin could not add campaign: {e}")
+        print(f"    FAIL - {e}")
 
-    # ------------------------------------------------------------------
-    # Summary
-    # ------------------------------------------------------------------
-    print("\n" + "=" * 60)
-    print("  Ownership Transfer Test Complete")
-    print("=" * 60)
+    print("\nDone.")
 
 
 if __name__ == "__main__":
