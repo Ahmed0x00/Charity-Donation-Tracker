@@ -1,4 +1,4 @@
-# 🏛️ Charity Donation Tracker
+# Charity Donation Tracker
 
 A transparent, blockchain-powered command-line application where every donation to a charity campaign is recorded on-chain and can never be hidden or changed.
 
@@ -6,7 +6,7 @@ Built with **Solidity** smart contracts on a local **Ganache** Ethereum network,
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
@@ -204,12 +204,12 @@ Select **"View my activity history"** to see a table of every action your addres
 
 | Member | Responsibility |
 |--------|---------------|
-| Member 1 | Core Smart Contract + Access Control + Pause/Resume |
-| Member 2 | Donor Coin ERC-20 + Batch Operations + Ownership Transfer |
-| Member 3 | Deploy Script + Admin Dashboard + Balance Snapshot CSV |
-| Member 4 | Transaction Sender + Terminal App + User Registration |
-| Member 5 | Activity History + Balance Checker + Data Report |
-| Member 6 | Security Test + Live Alerts + System Documentation |
+| Ahmed | Core Smart Contract + Access Control + Pause/Resume |
+| Tony | Donor Coin ERC-20 + Batch Operations + Ownership Transfer |
+| Shahd | Deploy Script + Admin Dashboard + Balance Snapshot CSV |
+| Sondos | Transaction Sender + Terminal App + User Registration |
+| Youstina | Activity History + Balance Checker + Data Report |
+| Fatma | Security Test + Live Alerts + System Documentation |
 
 ---
 
