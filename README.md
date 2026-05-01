@@ -211,8 +211,3 @@ Select **"View my activity history"** to see a table of every action your addres
 | Youstina | Activity History + Balance Checker + Data Report |
 | Fatma | Security Test + Live Alerts + System Documentation |
 
----
-
-## License
-
-This project is for educational purposes — Technologies of Cryptocurrencies course.
