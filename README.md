@@ -185,18 +185,18 @@ Select **"View my activity history"** to see a table of every action your addres
 
 ## Running the Scripts
 
-| Script | Purpose | Command |
-|--------|---------|---------|
-| `deploy.py` | Deploy contracts + seed data | `python scripts/deploy.py` |
-| `terminal_app.py` | Main CLI application | `python scripts/terminal_app.py` |
-| `admin_dashboard.py` | Admin summary view | `python scripts/admin_dashboard.py` |
-| `balance_snapshot.py` | Export balances to CSV | `python scripts/balance_snapshot.py` |
-| `security_test.py` | Test access control | `python scripts/security_test.py` |
-| `live_alerts.py` | Real-time donation alerts | `python scripts/live_alerts.py` |
-| `ownership_transfer_test.py` | Test ownership transfer | `python scripts/ownership_transfer_test.py` |
-| `activity_history.py` | View address activity | `python scripts/activity_history.py` |
-| `balance_checker.py` | Check Coin + ETH balance | `python scripts/balance_checker.py` |
-| `data_report.py` | Campaign fundraising report | `python scripts/data_report.py` |
+| Script | Purpose | 
+|--------|---------|
+| `deploy.py` | Deploy contracts + seed data | 
+| `terminal_app.py` | Main CLI application | 
+| `admin_dashboard.py` | Admin summary view | 
+| `balance_snapshot.py` | Export balances to CSV | 
+| `security_test.py` | Test access control | 
+| `live_alerts.py` | Real-time donation alerts | 
+| `ownership_transfer_test.py` | Test ownership transfer | 
+| `activity_history.py` | View address activity |
+| `balance_checker.py` | Check Coin + ETH balance | 
+| `data_report.py` | Campaign fundraising report |
 
 ---
 
